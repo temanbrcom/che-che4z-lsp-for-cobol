@@ -13,10 +13,11 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
+package org.eclipse.lsp.cobol.lsif.model.vertices;
 
 // {"id":7,"type":"vertex","label":"project","kind":"typescript","name":"testProject",
 // "resource":"file:///home/anton/projects/lsif/testProject/tsconfig.json"}
+
 /** asdfsaf */
 public class Project extends Vertex {
   final String kind = "COBOL";

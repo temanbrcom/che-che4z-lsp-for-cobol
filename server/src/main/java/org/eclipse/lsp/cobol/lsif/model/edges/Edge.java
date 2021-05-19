@@ -13,7 +13,9 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
+package org.eclipse.lsp.cobol.lsif.model.edges;
+
+import org.eclipse.lsp.cobol.lsif.model.Node;
 
 import java.util.List;
 /** asdfsaf */

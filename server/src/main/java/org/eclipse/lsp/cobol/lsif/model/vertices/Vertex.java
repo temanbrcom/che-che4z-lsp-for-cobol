@@ -13,18 +13,13 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
+package org.eclipse.lsp.cobol.lsif.model.vertices;
 
-import java.util.List;
+import org.eclipse.lsp.cobol.lsif.model.Node;
 
-/** asdasd */
-public class Item extends Edge {
-  final Integer shard;
-  final String property;
-
-  public Item(Integer inV, int outV, List<Integer> inVs, Integer shard, String property) {
-    super("item", inV, outV, inVs);
-    this.shard = shard;
-    this.property = property;
+/** asdfsaf */
+public abstract class Vertex extends Node {
+  public Vertex(String label) {
+    super("vertex", label);
   }
 }

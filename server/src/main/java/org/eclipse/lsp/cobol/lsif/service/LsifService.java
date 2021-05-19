@@ -18,7 +18,9 @@ package org.eclipse.lsp.cobol.lsif.service;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import org.eclipse.lsp.cobol.core.model.variables.Variable;
-import org.eclipse.lsp.cobol.lsif.model.*;
+import org.eclipse.lsp.cobol.lsif.model.Node;
+import org.eclipse.lsp.cobol.lsif.model.edges.*;
+import org.eclipse.lsp.cobol.lsif.model.vertices.*;
 import org.eclipse.lsp.cobol.service.CobolDocumentModel;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SymbolKind;
@@ -45,7 +47,7 @@ public class LsifService {
   public void dumpGraph(String uri, CobolDocumentModel model) {
     String dump =
         createGraph(uri, model).stream().map(this::dumpNode).collect(Collectors.joining("\n"));
-
+    System.out.println(dump);
     try {
       Files.write(Paths.get(URI.create(uri + ".lsif")), dump.getBytes(StandardCharsets.UTF_8));
     } catch (IOException e) {
@@ -62,20 +64,20 @@ public class LsifService {
     graph.add(document);
     graph.add(document.beginEvent());
     graph.add(new Contains(ImmutableList.of(document.getId()), project.getId()));
-    graph.addAll(createVariableDefinitionNodes(document, model));
+    graph.addAll(createVariableGraphs(document, model));
     graph.add(document.endEvent());
     graph.add(project.endEvent());
     return graph;
   }
 
-  private List<Node> createVariableDefinitionNodes(Node document, CobolDocumentModel model) {
+  private List<Node> createVariableGraphs(Node document, CobolDocumentModel model) {
     return model.getAnalysisResult().getVariables().stream()
-        .map(it -> createVariableDefinitionSet(document, it))
+        .map(it -> createVariableGraph(document, it))
         .flatMap(Collection::stream)
         .collect(Collectors.toList());
   }
 
-  private List<Node> createVariableDefinitionSet(Node document, Variable variable) {
+  private List<Node> createVariableGraph(Node document, Variable variable) {
     List<Node> graph = new ArrayList<>();
     Node vertexRange = variableDefinitionToRange(variable);
     graph.add(vertexRange);
@@ -94,6 +96,15 @@ public class LsifService {
             ImmutableList.of(vertexRange.getId()),
             document.getId(),
             null));
+
+    Node hoverResult =
+        new HoverResult(
+            ImmutableList.of(new HoverResult.Content(variable.getFormattedDisplayLine())));
+    graph.add(hoverResult);
+    graph.add(new Request(Request.Type.HOVER, hoverResult.getId(), resultSet.getId(), null));
+    Node moniker = new Moniker(variable.getName());
+    graph.add(moniker);
+    graph.add(new MonikerEdge(moniker.getId(), resultSet.getId()));
     return graph;
   }
 

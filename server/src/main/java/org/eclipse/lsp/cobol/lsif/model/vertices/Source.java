@@ -13,10 +13,16 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
+package org.eclipse.lsp.cobol.lsif.model.vertices;
+
+// {"id":2,"type":"vertex","label":"source","workspaceRoot":"file:///home/anton/projects/lsif/testProject"}
+
 /** asdfsaf */
-public abstract class Vertex extends Node {
-  public Vertex(String label) {
-    super("vertex", label);
+public class Source extends Vertex {
+  final String workspaceRoot;
+
+  public Source(String workspaceRoot) {
+    super("source");
+    this.workspaceRoot = workspaceRoot;
   }
 }

@@ -13,7 +13,7 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
+package org.eclipse.lsp.cobol.lsif.model.edges;
 
 import java.util.List;
 /** asdfasr */
@@ -25,7 +25,8 @@ public class Request extends Edge {
   /** asdfasr */
   public enum Type {
     DEFINITION("textDocument/definition"),
-    REFERENCES("textDocument/references");
+    REFERENCES("textDocument/references"),
+    HOVER("textDocument/hover");
     final String desc;
 
     Type(String desc) {

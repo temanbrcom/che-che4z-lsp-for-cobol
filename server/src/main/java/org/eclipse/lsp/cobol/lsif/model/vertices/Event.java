@@ -12,12 +12,13 @@
  *    Broadcom, Inc. - initial API and implementation
  *
  */
-package org.eclipse.lsp.cobol.lsif.model;
-
+package org.eclipse.lsp.cobol.lsif.model.vertices;
+/** awer */
 public class Event extends Vertex {
   String scope;
   String kind;
   int data;
+
   public Event(String scope, String kind, int data) {
     super("$event");
     this.scope = scope;

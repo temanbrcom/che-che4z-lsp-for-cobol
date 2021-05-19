@@ -13,7 +13,7 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
+package org.eclipse.lsp.cobol.lsif.model.vertices;
 
 // {"id":3,"type":"vertex","label":"capabilities","hoverProvider":true,
 // "declarationProvider":false,"definitionProvider":true,"typeDefinitionProvider":true,

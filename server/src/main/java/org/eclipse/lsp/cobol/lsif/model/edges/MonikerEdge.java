@@ -13,11 +13,11 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
+package org.eclipse.lsp.cobol.lsif.model.edges;
 
 /** asdfasdf */
-public class Moniker extends Edge {
-  public Moniker(Integer inV, int outV) {
+public class MonikerEdge extends Edge {
+  public MonikerEdge(Integer inV, int outV) {
     super("moniker", inV, outV, null);
   }
 }

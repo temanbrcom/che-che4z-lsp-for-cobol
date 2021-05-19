@@ -13,7 +13,7 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
+package org.eclipse.lsp.cobol.lsif.model.vertices;
 
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
@@ -35,6 +35,17 @@ public class VertexRange extends Vertex {
   }
 
   /** asdfasr */
+  public enum Type {
+    REFERENCE("reference"),
+    DEFINITION("definition");
+    final String desc;
+
+    Type(String desc) {
+      this.desc = desc;
+    }
+  }
+
+  /** asdfasr */
   public static class Tag {
     final String type;
     final String text;
@@ -46,17 +57,6 @@ public class VertexRange extends Vertex {
       this.text = text;
       this.kind = Optional.ofNullable(kind).map(SymbolKind::getValue).orElse(null);
       this.fullRange = fullRange;
-    }
-  }
-
-  /** asdfasr */
-  public enum Type {
-    REFERENCE("reference"),
-    DEFINITION("definition");
-    final String desc;
-
-    Type(String desc) {
-      this.desc = desc;
     }
   }
 }

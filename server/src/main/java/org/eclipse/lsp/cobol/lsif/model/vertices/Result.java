@@ -13,10 +13,23 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
-/**asdf*/
-public class Next extends Edge {
-  public Next(Integer inV, int outV) {
-    super("next", inV, outV, null);
+package org.eclipse.lsp.cobol.lsif.model.vertices;
+
+/** asdfasr */
+public class Result extends Vertex {
+  public Result(Type type) {
+    super(type.desc);
+  }
+
+  /** asdfasr */
+  public enum Type {
+    DEFINITION("definitionResult"),
+    REFERENCES("referenceResult"),
+    RESULT_SET("resultSet");
+    final String desc;
+
+    Type(String desc) {
+      this.desc = desc;
+    }
   }
 }

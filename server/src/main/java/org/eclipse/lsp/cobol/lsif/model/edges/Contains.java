@@ -13,15 +13,14 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
+package org.eclipse.lsp.cobol.lsif.model.edges;
 
-// {"id":2,"type":"vertex","label":"source","workspaceRoot":"file:///home/anton/projects/lsif/testProject"}
+import java.util.List;
+
+// {"id":46,"type":"edge","label":"contains","outV":7,"inVs":[9]}
 /** asdfsaf */
-public class Source extends Vertex {
-  final String workspaceRoot;
-
-  public Source(String workspaceRoot) {
-    super("source");
-    this.workspaceRoot = workspaceRoot;
+public class Contains extends Edge {
+  public Contains(List<Integer> inVs, int outV) {
+    super("contains", null, outV, inVs);
   }
 }

@@ -13,15 +13,16 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
+package org.eclipse.lsp.cobol.lsif.model.vertices;
+/** asd */
+public class Moniker extends Vertex {
+  final String scheme = "COBOL";
+  final String unique = "workspace";
+  final String kind = "";
+  final String identifier;
 
-// {"id":1,"type":"vertex","label":"metaData","version":"0.6.0-next.2","positionEncoding":"utf-16"}
-/** asdfsaf */
-public class MetaData extends Vertex {
-  final String version = "0.6.0-next.2";
-  final String positionEncoding = "utf-16";
-
-  public MetaData() {
-    super("metaData");
+  public Moniker(String identifier) {
+    super("moniker");
+    this.identifier = identifier;
   }
 }

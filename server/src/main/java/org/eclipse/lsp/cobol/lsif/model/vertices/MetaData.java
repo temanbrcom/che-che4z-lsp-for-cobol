@@ -13,19 +13,16 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
+package org.eclipse.lsp.cobol.lsif.model.vertices;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+// {"id":1,"type":"vertex","label":"metaData","version":"0.6.0-next.2","positionEncoding":"utf-16"}
 
-import java.util.concurrent.atomic.AtomicInteger;
 /** asdfsaf */
-@Data
-@AllArgsConstructor
-public abstract class Node {
-  private static AtomicInteger counter = new AtomicInteger();
+public class MetaData extends Vertex {
+  final String version = "0.6.0-next.2";
+  final String positionEncoding = "utf-16";
 
-  public final int id = counter.incrementAndGet();
-  String type;
-  String label;
+  public MetaData() {
+    super("metaData");
+  }
 }

@@ -13,15 +13,18 @@
  *
  */
 
-package org.eclipse.lsp.cobol.lsif.model;
+package org.eclipse.lsp.cobol.lsif.model.edges;
 
 import java.util.List;
 
-// {"id":46,"type":"edge","label":"contains","outV":7,"inVs":[9]}
-/** asdfsaf */
-public class Contains extends Edge {
-  public Contains(List<Integer> inVs, int outV) {
-    super("contains", null, outV, inVs);
-  }
+/** asdasd */
+public class Item extends Edge {
+  final Integer shard;
+  final String property;
 
+  public Item(Integer inV, int outV, List<Integer> inVs, Integer shard, String property) {
+    super("item", inV, outV, inVs);
+    this.shard = shard;
+    this.property = property;
+  }
 }
