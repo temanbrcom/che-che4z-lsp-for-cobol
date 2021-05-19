@@ -17,6 +17,9 @@ package org.eclipse.lsp.cobol.lsif.model;
 
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.SymbolKind;
+
+import java.util.Optional;
 
 /** asdfasr */
 public class VertexRange extends Vertex {
@@ -32,17 +35,28 @@ public class VertexRange extends Vertex {
   }
 
   /** asdfasr */
-  static class Tag {
+  public static class Tag {
     final String type;
     final String text;
     final Integer kind;
     final Range fullRange;
 
-    Tag(String type, String text, Integer kind, Range fullRange) {
-      this.type = type;
+    public Tag(Type type, String text, SymbolKind kind, Range fullRange) {
+      this.type = type.desc;
       this.text = text;
-      this.kind = kind;
+      this.kind = Optional.ofNullable(kind).map(SymbolKind::getValue).orElse(null);
       this.fullRange = fullRange;
+    }
+  }
+
+  /** asdfasr */
+  public enum Type {
+    REFERENCE("reference"),
+    DEFINITION("definition");
+    final String desc;
+
+    Type(String desc) {
+      this.desc = desc;
     }
   }
 }
