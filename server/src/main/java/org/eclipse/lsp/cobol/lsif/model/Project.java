@@ -28,4 +28,12 @@ public class Project extends Vertex {
     this.name = name;
     this.resource = resource;
   }
+
+  public Event beginEvent() {
+    return Event.begin("project", id);
+  }
+
+  public Event endEvent() {
+    return Event.end("project", id);
+  }
 }

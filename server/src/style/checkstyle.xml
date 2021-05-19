@@ -71,23 +71,6 @@
 
     <module name="TreeWalker">
 
-        <!-- Checks for Javadoc comments.                     -->
-        <!-- See https://checkstyle.org/config_javadoc.html -->
-        <module name="InvalidJavadocPosition"/>
-        <module name="JavadocMethod">
-            <property name="scope" value="public"/>
-        </module>
-        <!-- <module name="JavadocType"/>-->
-        <!-- <module name="JavadocVariable"/>-->
-        <!-- <module name="JavadocStyle"/>-->
-        <module name="MissingJavadocMethod">
-            <property name="allowMissingPropertyJavadoc" value="true"/>
-            <property name="tokens" value="METHOD_DEF"/>
-        </module>
-        <module name="MissingJavadocType">
-            <property name="scope" value="package"/>
-        </module>
-
         <!-- Checks for Naming Conventions.                  -->
         <!-- See https://checkstyle.org/config_naming.html -->
         <module name="ConstantName"/>

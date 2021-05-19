@@ -34,4 +34,12 @@ public class Document extends Vertex {
     this.languageId = languageId;
     this.uri = uri;
   }
+
+  public Event beginEvent() {
+    return Event.begin("document", id);
+  }
+
+  public Event endEvent() {
+    return Event.end("document", id);
+  }
 }

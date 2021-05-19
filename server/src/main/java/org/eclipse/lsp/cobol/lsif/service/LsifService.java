@@ -49,14 +49,23 @@ public class LsifService {
   private List<Node> createGraph(String uri, CobolDocumentModel model) {
     List<Node> graph = new ArrayList<>();
     graph.add(new MetaData());
-    graph.add(new Source("workspaceRoot"));
+    graph.add(new Source(getRootURI(uri)));
     graph.add(new Capabilities());
-    Node project = new Project("cobolProject", null);
-    Node document = new Document(uri, "COBOL", model.getText());
+    Project project = new Project("cobolProject", null);
+    Document document = new Document(uri, "COBOL", model.getText());
     graph.add(project);
+    graph.add(project.beginEvent());
     graph.add(document);
+    graph.add(document.beginEvent());
     graph.add(new Contains(ImmutableList.of(document.getId()), project.getId()));
+    graph.add(document.endEvent());
+    graph.add(project.endEvent());
     return graph;
+  }
+
+  private static String getRootURI(String uri) {
+    int index = uri.lastIndexOf('/');
+    return uri.substring(0, index);
   }
 
   private String dumpNode(Node node) {
