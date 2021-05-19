@@ -33,6 +33,7 @@ import org.eclipse.lsp.cobol.domain.databus.model.AnalysisFinishedEvent;
 import org.eclipse.lsp.cobol.domain.databus.model.RunAnalysisEvent;
 import org.eclipse.lsp.cobol.domain.event.model.AnalysisResultEvent;
 import org.eclipse.lsp.cobol.jrpc.ExtendedApi;
+import org.eclipse.lsp.cobol.lsif.service.LsifService;
 import org.eclipse.lsp.cobol.service.delegates.actions.CodeActions;
 import org.eclipse.lsp.cobol.service.delegates.communications.Communications;
 import org.eclipse.lsp.cobol.service.delegates.completions.Completions;
@@ -46,7 +47,10 @@ import org.eclipse.lsp4j.*;
 import org.eclipse.lsp4j.jsonrpc.messages.Either;
 import org.eclipse.lsp4j.services.TextDocumentService;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
@@ -77,7 +81,7 @@ public class CobolTextDocumentService
   private static final String GITFS_URI_NOT_SUPPORTED = "GITFS URI not supported";
   private final Map<String, CobolDocumentModel> docs = new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<List<DocumentSymbol>>> outlineMap =
-          new ConcurrentHashMap<>();
+      new ConcurrentHashMap<>();
   private final Map<String, CompletableFuture<Node>> cfAstMap = new ConcurrentHashMap<>();
   private final Map<String, Future<?>> futureMap = new ConcurrentHashMap<>();
   private Communications communications;
@@ -268,18 +272,22 @@ public class CobolTextDocumentService
   public CompletableFuture<ExtendedApiResult> analysis(@NonNull JsonObject json) {
     AnalysisResultEvent event = new Gson().fromJson(json.toString(), AnalysisResultEvent.class);
     AtomicBoolean triggerAnalyze = new AtomicBoolean();
-    cfAstMap.computeIfAbsent(event.getUri(), (ignore) -> {
-      triggerAnalyze.set(true);
-      return new CompletableFuture<>();
-    });
+    cfAstMap.computeIfAbsent(
+        event.getUri(),
+        (ignore) -> {
+          triggerAnalyze.set(true);
+          return new CompletableFuture<>();
+        });
     if (triggerAnalyze.get()) {
       analyzeDocumentFirstTime(event.getUri(), event.getText(), false);
     }
     CompletableFuture<Node> nodeCompletableFuture = cfAstMap.get(event.getUri());
     nodeCompletableFuture.thenApply(ignore -> cfAstMap.remove(event.getUri()));
-    return nodeCompletableFuture.thenApply(cfastBuilder::build)
-            .whenComplete(
-                    reportExceptionIfThrown(createDescriptiveErrorMessage("analysis retrieving", event.getUri())));
+    return nodeCompletableFuture
+        .thenApply(cfastBuilder::build)
+        .whenComplete(
+            reportExceptionIfThrown(
+                createDescriptiveErrorMessage("analysis retrieving", event.getUri())));
   }
 
   private void clearAnalysedFutureObject(String uri) {
@@ -303,11 +311,14 @@ public class CobolTextDocumentService
                     AnalysisResult result = engine.analyze(uri, text, copybookProcessingMode);
                     ofNullable(docs.get(uri)).ifPresent(doc -> doc.setAnalysisResult(result));
                     publishResult(uri, result, copybookProcessingMode);
-                    outlineMap.computeIfPresent(uri, (key, value) -> {
-                      value.complete(result.getOutlineTree());
-                      return value;
-                    });
+                    outlineMap.computeIfPresent(
+                        uri,
+                        (key, value) -> {
+                          value.complete(result.getOutlineTree());
+                          return value;
+                        });
                     cfAstMap.get(uri).complete(result.getRootNode());
+                    createDump(uri, docs.get(uri));
                   } catch (Exception e) {
                     LOG.error(createDescriptiveErrorMessage("analysis", uri), e);
                   } finally {
@@ -315,6 +326,11 @@ public class CobolTextDocumentService
                   }
                 });
     registerToFutureMap(uri, docAnalysisFuture);
+  }
+
+  private void createDump(String uri, CobolDocumentModel model) {
+    LsifService lsifService = new LsifService();
+    lsifService.dumpGraph(uri, model);
   }
 
   private void registerToFutureMap(String uri, Future<?> docAnalysisFuture) {
