@@ -29,6 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -68,14 +69,31 @@ public class LsifService {
   }
 
   private List<Node> createVariableDefinitionNodes(Node document, CobolDocumentModel model) {
-    List<Node> definitionNodes =
-        model.getAnalysisResult().getVariables().stream()
-            .map(this::variableDefinitionToRange)
-            .collect(Collectors.toList());
-    List<Node> graph = new ArrayList<>(definitionNodes);
-    definitionNodes.stream()
-        .map(it -> new Contains(ImmutableList.of(document.getId()), it.getId()))
-        .forEach(graph::add);
+    return model.getAnalysisResult().getVariables().stream()
+        .map(it -> createVariableDefinitionSet(document, it))
+        .flatMap(Collection::stream)
+        .collect(Collectors.toList());
+  }
+
+  private List<Node> createVariableDefinitionSet(Node document, Variable variable) {
+    List<Node> graph = new ArrayList<>();
+    Node vertexRange = variableDefinitionToRange(variable);
+    graph.add(vertexRange);
+    graph.add(new Contains(ImmutableList.of(document.getId()), vertexRange.getId()));
+    Node resultSet = new Result(Result.Type.RESULT_SET);
+    graph.add(resultSet);
+    graph.add(new Next(resultSet.getId(), vertexRange.getId()));
+    Node definitionResult = new Result(Result.Type.DEFINITION);
+    graph.add(definitionResult);
+    graph.add(
+        new Request(Request.Type.DEFINITION, definitionResult.getId(), resultSet.getId(), null));
+    graph.add(
+        new Item(
+            null,
+            definitionResult.getId(),
+            ImmutableList.of(vertexRange.getId()),
+            document.getId(),
+            null));
     return graph;
   }
 

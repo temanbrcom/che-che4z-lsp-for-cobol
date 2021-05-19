@@ -19,10 +19,10 @@ import java.util.List;
 
 /** asdasd */
 public class Item extends Edge {
-  final String shard;
+  final Integer shard;
   final String property;
 
-  public Item(Integer inV, int outV, List<Integer> inVs, String shard, String property) {
+  public Item(Integer inV, int outV, List<Integer> inVs, Integer shard, String property) {
     super("item", inV, outV, inVs);
     this.shard = shard;
     this.property = property;
