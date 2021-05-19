@@ -17,6 +17,7 @@ package org.eclipse.lsp.cobol.lsif.service;
 
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
+import org.eclipse.lsp.cobol.core.model.Locality;
 import org.eclipse.lsp.cobol.core.model.variables.Variable;
 import org.eclipse.lsp.cobol.lsif.model.Node;
 import org.eclipse.lsp.cobol.lsif.model.edges.*;
@@ -79,12 +80,18 @@ public class LsifService {
 
   private List<Node> createVariableGraph(Node document, Variable variable) {
     List<Node> graph = new ArrayList<>();
-    Node vertexRange = variableDefinitionToRange(variable);
-    graph.add(vertexRange);
-    graph.add(new Contains(ImmutableList.of(document.getId()), vertexRange.getId()));
+    Node definitionRange = variableDefinitionToRange(variable);
+    graph.add(definitionRange);
+    graph.add(new Contains(ImmutableList.of(document.getId()), definitionRange.getId()));
+    List<Node> referenceRanges = variableUsagesToRanges(variable);
+    graph.addAll(referenceRanges);
+    referenceRanges.stream()
+        .map(it -> new Contains(ImmutableList.of(it.getId()), document.getId()))
+        .forEach(graph::add);
     Node resultSet = new Result(Result.Type.RESULT_SET);
     graph.add(resultSet);
-    graph.add(new Next(resultSet.getId(), vertexRange.getId()));
+    graph.add(new Next(resultSet.getId(), definitionRange.getId()));
+    referenceRanges.stream().map(it -> new Next(resultSet.getId(), it.getId())).forEach(graph::add);
     Node definitionResult = new Result(Result.Type.DEFINITION);
     graph.add(definitionResult);
     graph.add(
@@ -93,7 +100,7 @@ public class LsifService {
         new Item(
             null,
             definitionResult.getId(),
-            ImmutableList.of(vertexRange.getId()),
+            ImmutableList.of(definitionRange.getId()),
             document.getId(),
             null));
 
@@ -105,7 +112,41 @@ public class LsifService {
     Node moniker = new Moniker(variable.getName());
     graph.add(moniker);
     graph.add(new MonikerEdge(moniker.getId(), resultSet.getId()));
+    Node referencesResult = new Result(Result.Type.REFERENCES);
+    graph.add(referencesResult);
+    graph.add(
+        new Request(Request.Type.REFERENCES, referencesResult.getId(), resultSet.getId(), null));
+    graph.add(
+        new Item(
+            null,
+            referencesResult.getId(),
+            ImmutableList.of(definitionRange.getId()),
+            document.getId(),
+            "definitions"));
+    referenceRanges.stream()
+        .map(
+            it ->
+                new Item(
+                    null,
+                    referencesResult.getId(),
+                    ImmutableList.of(it.getId()),
+                    document.getId(),
+                    "references"))
+        .forEach(graph::add);
     return graph;
+  }
+
+  private List<Node> variableUsagesToRanges(Variable variable) {
+    return variable.getUsages().stream()
+        .map(Locality::getRange)
+        .map(
+            it ->
+                new VertexRange(
+                    it.getStart(),
+                    it.getEnd(),
+                    new VertexRange.Tag(
+                        VertexRange.Type.REFERENCE, variable.getName(), null, null)))
+        .collect(Collectors.toList());
   }
 
   private VertexRange variableDefinitionToRange(Variable variable) {
