@@ -61,9 +61,9 @@ public class LsifService {
     graph.add(document);
     graph.add(document.beginEvent());
     graph.add(new Contains(ImmutableList.of(document.getId()), project.getId()));
+    graph.addAll(createVariableDefinitionNodes(document, model));
     graph.add(document.endEvent());
     graph.add(project.endEvent());
-    graph.addAll(createVariableDefinitionNodes(document, model));
     return graph;
   }
 
