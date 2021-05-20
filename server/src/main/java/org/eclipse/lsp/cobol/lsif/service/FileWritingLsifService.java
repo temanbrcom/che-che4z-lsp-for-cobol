@@ -38,7 +38,6 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.*;
@@ -87,12 +86,24 @@ public class FileWritingLsifService implements LsifService {
     Map<String, Node> documents = new HashMap<>(copybookNodes);
     documents.put(uri, document);
     List<Node> graph = new ArrayList<>(copybookNodes.values());
-    graph.addAll(createCopybookConnections(copybookNodes, project));
+    graph.addAll(createDocumentConnections(copybookNodes.values(), project));
+    List<Node> subroutineDocuments = createSubroutineDocuments(analysisResult);
+    graph.addAll(subroutineDocuments);
+    documents.put(uri, document);
+    graph.addAll(createDocumentConnections(subroutineDocuments, project));
+    graph.addAll(createSubroutineGraph(documents, analysisResult));
+    graph.addAll(createCopybookGraph(documents, analysisResult));
     graph.addAll(createVariableGraphs(documents, analysisResult));
     graph.addAll(createParagraphGraphs(documents, analysisResult));
     graph.addAll(createSectionGraphs(documents, analysisResult));
-    graph.addAll(createCopybooksGraph(documents, analysisResult));
     return graph;
+  }
+
+  private List<Node> createSubroutineDocuments(AnalysisResult analysisResult) {
+    return analysisResult.getSubroutineDefinitions().values().stream()
+        .map(it -> it.get(0))
+        .map(locations -> new Document(locations.getUri(), "COBOL", ""))
+        .collect(toList());
   }
 
   private Map<String, Node> convertCopybooksToNodes(List<CopybookModel> copybooks) {
@@ -101,8 +112,8 @@ public class FileWritingLsifService implements LsifService {
         .collect(toMap(Document::getUri, Function.identity()));
   }
 
-  private List<Node> createCopybookConnections(Map<String, Node> copybookNodes, Project project) {
-    return copybookNodes.values().stream()
+  private List<Node> createDocumentConnections(Collection<Node> documents, Project project) {
+    return documents.stream()
         .map(it -> new Contains(ImmutableList.of(it.getId()), project.getId()))
         .collect(toList());
   }
@@ -162,8 +173,8 @@ public class FileWritingLsifService implements LsifService {
         .collect(toList());
   }
 
-  private List<Node> createCopybooksGraph(Map<String, Node> documents, AnalysisResult result) {
-    return result.getVariableDefinitions().entrySet().stream()
+  private List<Node> createCopybookGraph(Map<String, Node> documents, AnalysisResult result) {
+    return result.getCopybookDefinitions().entrySet().stream()
         .map(
             it ->
                 createSubGraph(
@@ -173,6 +184,23 @@ public class FileWritingLsifService implements LsifService {
                     it.getKey(),
                     it.getValue().get(0),
                     ofNullable(result.getCopybookUsages())
+                        .map(usages -> usages.get(it.getKey()))
+                        .orElse(ImmutableList.of())))
+        .flatMap(Collection::stream)
+        .collect(toList());
+  }
+
+  private List<Node> createSubroutineGraph(Map<String, Node> documents, AnalysisResult result) {
+    return result.getSubroutineDefinitions().entrySet().stream()
+        .map(
+            it ->
+                createSubGraph(
+                    documents,
+                    it.getKey(),
+                    SymbolKind.File,
+                    it.getKey(),
+                    it.getValue().get(0),
+                    ofNullable(result.getSubroutineUsages())
                         .map(usages -> usages.get(it.getKey()))
                         .orElse(ImmutableList.of())))
         .flatMap(Collection::stream)
@@ -299,7 +327,7 @@ public class FileWritingLsifService implements LsifService {
 
   private Map<Node, String> convertUsagesToRanges(
       String name, List<Location> usages, SymbolKind kind) {
-    return usages.stream().collect(Collectors.toMap(locationToRange(name, kind), Location::getUri));
+    return usages.stream().collect(toMap(locationToRange(name, kind), Location::getUri));
   }
 
   private Function<Location, Node> locationToRange(String name, SymbolKind kind) {
