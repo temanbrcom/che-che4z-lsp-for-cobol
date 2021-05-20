@@ -72,21 +72,21 @@ public class FileWritingLsifService implements LsifService {
     graph.add(document);
     graph.add(document.beginEvent());
     graph.add(new Contains(ImmutableList.of(document.getId()), project.getId()));
-    graph.addAll(createGrapsForSemantics(uri, model, document, project));
+    graph.addAll(createGraphsForSemantics(uri, model, document, project));
     graph.add(document.endEvent());
     graph.add(project.endEvent());
     return graph;
   }
 
-  private List<Node> createGrapsForSemantics(
+  private List<Node> createGraphsForSemantics(
       String uri, CobolDocumentModel model, Node document, Project project) {
-    List<Node> graph = new ArrayList<>();
     AnalysisResult analysisResult = model.getAnalysisResult();
     List<CopybookModel> copybooks =
         retrieveCopybooks(analysisResult.getCopybookUsages().keySet(), uri);
     Map<String, Node> copybookNodes = convertCopybooksToNodes(copybooks);
     Map<String, Node> documents = new HashMap<>(copybookNodes);
     documents.put(uri, document);
+    List<Node> graph = new ArrayList<>(copybookNodes.values());
     graph.addAll(createCopybookConnections(copybookNodes, project));
     graph.addAll(createVariableGraphs(documents, analysisResult));
     graph.addAll(createParagraphGraphs(documents, analysisResult));
