@@ -18,11 +18,13 @@ package org.eclipse.lsp.cobol.lsif.service;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import com.google.inject.Inject;
+import org.eclipse.lsp.cobol.core.model.CopybookModel;
 import org.eclipse.lsp.cobol.core.model.Locality;
 import org.eclipse.lsp.cobol.lsif.model.Node;
 import org.eclipse.lsp.cobol.lsif.model.edges.*;
 import org.eclipse.lsp.cobol.lsif.model.vertices.*;
 import org.eclipse.lsp.cobol.service.CobolDocumentModel;
+import org.eclipse.lsp.cobol.service.CopybookProcessingMode;
 import org.eclipse.lsp.cobol.service.CopybookService;
 import org.eclipse.lsp.cobol.service.delegates.validations.AnalysisResult;
 import org.eclipse.lsp4j.Location;
@@ -34,13 +36,12 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static java.util.stream.Collectors.toList;
+import static java.util.Optional.ofNullable;
+import static java.util.stream.Collectors.*;
 
 /** asdfsaf */
 public class FileWritingLsifService implements LsifService {
@@ -53,8 +54,7 @@ public class FileWritingLsifService implements LsifService {
 
   @Override
   public void dumpGraph(String uri, CobolDocumentModel model) {
-    String dump =
-        createGraph(uri, model).stream().map(this::dumpNode).collect(Collectors.joining("\n"));
+    String dump = createGraph(uri, model).stream().map(this::dumpNode).collect(joining("\n"));
     System.out.println(dump);
     try {
       Files.write(Paths.get(URI.create(uri + ".lsif")), dump.getBytes(StandardCharsets.UTF_8));
@@ -72,21 +72,53 @@ public class FileWritingLsifService implements LsifService {
     graph.add(document);
     graph.add(document.beginEvent());
     graph.add(new Contains(ImmutableList.of(document.getId()), project.getId()));
-    AnalysisResult analysisResult = model.getAnalysisResult();
-    graph.addAll(createVariableGraphs(document, analysisResult));
-    graph.addAll(createParagraphGraphs(document, analysisResult));
-    graph.addAll(createSectionGraphs(document, analysisResult));
+    graph.addAll(createGrapsForSemantics(uri, model, document, project));
     graph.add(document.endEvent());
     graph.add(project.endEvent());
     return graph;
   }
 
-  private List<Node> createVariableGraphs(Node document, AnalysisResult result) {
+  private List<Node> createGrapsForSemantics(
+      String uri, CobolDocumentModel model, Node document, Project project) {
+    List<Node> graph = new ArrayList<>();
+    AnalysisResult analysisResult = model.getAnalysisResult();
+    List<CopybookModel> copybooks =
+        retrieveCopybooks(analysisResult.getCopybookUsages().keySet(), uri);
+    Map<String, Node> copybookNodes = convertCopybooksToNodes(copybooks);
+    Map<String, Node> documents = new HashMap<>(copybookNodes);
+    documents.put(uri, document);
+    graph.addAll(createCopybookConnections(copybookNodes, project));
+    graph.addAll(createVariableGraphs(documents, analysisResult));
+    graph.addAll(createParagraphGraphs(documents, analysisResult));
+    graph.addAll(createSectionGraphs(documents, analysisResult));
+    graph.addAll(createCopybooksGraph(documents, analysisResult));
+    return graph;
+  }
+
+  private Map<String, Node> convertCopybooksToNodes(List<CopybookModel> copybooks) {
+    return copybooks.stream()
+        .map(it -> new Document(it.getUri(), "COBOL Copybook", it.getContent()))
+        .collect(toMap(Document::getUri, Function.identity()));
+  }
+
+  private List<Node> createCopybookConnections(Map<String, Node> copybookNodes, Project project) {
+    return copybookNodes.values().stream()
+        .map(it -> new Contains(ImmutableList.of(it.getId()), project.getId()))
+        .collect(toList());
+  }
+
+  private List<CopybookModel> retrieveCopybooks(Set<String> copybooks, String uri) {
+    return copybooks.stream()
+        .map(it -> service.resolve(it, uri, CopybookProcessingMode.ENABLED))
+        .collect(toList());
+  }
+
+  private List<Node> createVariableGraphs(Map<String, Node> documents, AnalysisResult result) {
     return result.getVariables().stream()
         .map(
             it ->
                 createSubGraph(
-                    document,
+                    documents,
                     it.getName(),
                     SymbolKind.Variable,
                     it.getFormattedDisplayLine(),
@@ -96,34 +128,51 @@ public class FileWritingLsifService implements LsifService {
         .collect(toList());
   }
 
-  private List<Node> createParagraphGraphs(Node document, AnalysisResult result) {
+  private List<Node> createParagraphGraphs(Map<String, Node> documents, AnalysisResult result) {
     return result.getParagraphDefinitions().entrySet().stream()
         .map(
             it ->
                 createSubGraph(
-                    document,
+                    documents,
                     it.getKey(),
                     SymbolKind.Method,
                     it.getKey(),
                     it.getValue().get(0),
-                    Optional.ofNullable(result.getParagraphUsages())
+                    ofNullable(result.getParagraphUsages())
                         .map(usages -> usages.get(it.getKey()))
                         .orElse(ImmutableList.of())))
         .flatMap(Collection::stream)
         .collect(toList());
   }
 
-  private List<Node> createSectionGraphs(Node document, AnalysisResult result) {
+  private List<Node> createSectionGraphs(Map<String, Node> documents, AnalysisResult result) {
     return result.getSectionDefinitions().entrySet().stream()
         .map(
             it ->
                 createSubGraph(
-                    document,
+                    documents,
                     it.getKey(),
-                    SymbolKind.Method,
+                    SymbolKind.Function,
                     it.getKey(),
                     it.getValue().get(0),
-                    Optional.ofNullable(result.getSectionUsages())
+                    ofNullable(result.getSectionUsages())
+                        .map(usages -> usages.get(it.getKey()))
+                        .orElse(ImmutableList.of())))
+        .flatMap(Collection::stream)
+        .collect(toList());
+  }
+
+  private List<Node> createCopybooksGraph(Map<String, Node> documents, AnalysisResult result) {
+    return result.getVariableDefinitions().entrySet().stream()
+        .map(
+            it ->
+                createSubGraph(
+                    documents,
+                    it.getKey(),
+                    SymbolKind.Class,
+                    it.getKey(),
+                    it.getValue().get(0),
+                    ofNullable(result.getCopybookUsages())
                         .map(usages -> usages.get(it.getKey()))
                         .orElse(ImmutableList.of())))
         .flatMap(Collection::stream)
@@ -131,76 +180,112 @@ public class FileWritingLsifService implements LsifService {
   }
 
   private List<Node> createSubGraph(
-      Node document,
+      Map<String, Node> documents,
       String name,
       SymbolKind kind,
       String hover,
-      Location definitions,
+      Location definition,
       List<Location> usages) {
     List<Node> graph = new ArrayList<>();
-    Node definitionRange = convertDefinitionToRange(name, definitions, kind);
+    Node definitionRange = convertDefinitionToRange(name, definition, kind);
+    int definitionDocId = documents.get(definition.getUri()).getId();
     graph.add(definitionRange);
-    graph.add(new Contains(ImmutableList.of(definitionRange.getId()), document.getId()));
-    List<Node> referenceRanges = convertUsagesToRanges(name, usages, kind);
-    graph.addAll(referenceRanges);
-    referenceRanges.stream()
-        .map(it -> new Contains(ImmutableList.of(it.getId()), document.getId()))
-        .forEach(graph::add);
+    graph.add(new Contains(ImmutableList.of(definitionRange.getId()), definitionDocId));
+    Map<Node, String> referenceRanges = convertUsagesToRanges(name, usages, kind);
+    graph.addAll(referenceRanges.keySet());
+    graph.addAll(createContainsEdges(documents, referenceRanges));
     Node resultSet = new Result(Result.Type.RESULT_SET);
     graph.add(resultSet);
     graph.add(new Next(resultSet.getId(), definitionRange.getId()));
-    referenceRanges.stream().map(it -> new Next(resultSet.getId(), it.getId())).forEach(graph::add);
+    graph.addAll(createNextEdges(referenceRanges, resultSet));
+    graph.addAll(createDefinitionRequest(definitionRange, definitionDocId, resultSet));
+    graph.addAll(
+        createReferenceResult(
+            documents, definitionRange, definitionDocId, referenceRanges, resultSet));
+    graph.addAll(createHover(hover, resultSet));
+    graph.addAll(createMoniker(name, resultSet));
+    return graph;
+  }
+
+  private List<Node> createDefinitionRequest(
+      Node definitionRange, int definitionDocId, Node resultSet) {
+    List<Node> graph = new ArrayList<>();
     Node definitionResult = new Result(Result.Type.DEFINITION);
     graph.add(definitionResult);
     graph.add(
         new Request(Request.Type.DEFINITION, definitionResult.getId(), resultSet.getId(), null));
-    graph.add(
-        new Item(
-            null,
-            definitionResult.getId(),
-            ImmutableList.of(definitionRange.getId()),
-            document.getId(),
-            null));
+    graph.add(createItemNode(definitionRange, definitionDocId, definitionResult, null));
+    return graph;
+  }
 
-    Node hoverResult = new HoverResult(ImmutableList.of(new HoverResult.Content(hover)));
-    graph.add(hoverResult);
-    graph.add(new Request(Request.Type.HOVER, hoverResult.getId(), resultSet.getId(), null));
-    Node moniker = new Moniker(name);
-    graph.add(moniker);
-    graph.add(new MonikerEdge(moniker.getId(), resultSet.getId()));
+  private List<Node> createReferenceResult(
+      Map<String, Node> documents,
+      Node definitionRange,
+      int definitionDocId,
+      Map<Node, String> referenceRanges,
+      Node resultSet) {
+    List<Node> graph = new ArrayList<>();
     Node referencesResult = new Result(Result.Type.REFERENCES);
     graph.add(referencesResult);
     graph.add(
         new Request(Request.Type.REFERENCES, referencesResult.getId(), resultSet.getId(), null));
-    graph.add(
-        new Item(
-            null,
-            referencesResult.getId(),
-            ImmutableList.of(definitionRange.getId()),
-            document.getId(),
-            "definitions"));
-    referenceRanges.stream()
-        .map(
-            it ->
-                new Item(
-                    null,
-                    referencesResult.getId(),
-                    ImmutableList.of(it.getId()),
-                    document.getId(),
-                    "references"))
-        .forEach(graph::add);
+    graph.add(createItemNode(definitionRange, definitionDocId, referencesResult, "definition"));
+    graph.addAll(createReferenceItemEdges(documents, referenceRanges, referencesResult));
     return graph;
   }
 
-  private List<Node> convertUsagesToRanges(String name, List<Location> usages, SymbolKind kind) {
-    return usages.stream()
-        .map(Location::getRange)
+  private List<Node> createHover(String hover, Node resultSet) {
+    List<Node> graph = new ArrayList<>();
+    Node hoverResult = new HoverResult(ImmutableList.of(new HoverResult.Content(hover)));
+    graph.add(hoverResult);
+    graph.add(new Request(Request.Type.HOVER, hoverResult.getId(), resultSet.getId(), null));
+    return graph;
+  }
+
+  private List<Node> createMoniker(String name, Node resultSet) {
+    List<Node> graph = new ArrayList<>();
+    Node moniker = new Moniker(name);
+    graph.add(moniker);
+    graph.add(new MonikerEdge(moniker.getId(), resultSet.getId()));
+    return graph;
+  }
+
+  private List<Next> createNextEdges(Map<Node, String> referenceRanges, Node resultSet) {
+    return referenceRanges.keySet().stream()
+        .map(it -> new Next(resultSet.getId(), it.getId()))
+        .collect(toList());
+  }
+
+  private List<Contains> createContainsEdges(
+      Map<String, Node> documents, Map<Node, String> ranges) {
+    return ranges.entrySet().stream()
         .map(
             it ->
-                new VertexRange(
-                    it.getStart(),
-                    it.getEnd(),
-                    new VertexRange.Tag(VertexRange.Type.REFERENCE, name, kind, it)))
+                new Contains(
+                    ImmutableList.of(it.getKey().getId()), documents.get(it.getValue()).getId()))
+        .collect(toList());
+  }
+
+  private Item createItemNode(
+      Node definitionRange, int definitionDocId, Node referencesResult, String property) {
+    return new Item(
+        null,
+        referencesResult.getId(),
+        ImmutableList.of(definitionRange.getId()),
+        definitionDocId,
+        property);
+  }
+
+  private List<Node> createReferenceItemEdges(
+      Map<String, Node> documents, Map<Node, String> referenceRanges, Node referencesResult) {
+    return referenceRanges.entrySet().stream()
+        .map(
+            it ->
+                createItemNode(
+                    it.getKey(),
+                    documents.get(it.getValue()).getId(),
+                    referencesResult,
+                    "references"))
         .collect(toList());
   }
 
@@ -210,6 +295,21 @@ public class FileWritingLsifService implements LsifService {
         range.getStart(),
         range.getEnd(),
         new VertexRange.Tag(VertexRange.Type.DEFINITION, name, kind, range));
+  }
+
+  private Map<Node, String> convertUsagesToRanges(
+      String name, List<Location> usages, SymbolKind kind) {
+    return usages.stream().collect(Collectors.toMap(locationToRange(name, kind), Location::getUri));
+  }
+
+  private Function<Location, Node> locationToRange(String name, SymbolKind kind) {
+    return it -> {
+      Range range = it.getRange();
+      return new VertexRange(
+          range.getStart(),
+          range.getEnd(),
+          new VertexRange.Tag(VertexRange.Type.REFERENCE, name, kind, range));
+    };
   }
 
   private List<Node> createStaticNodes(String uri) {

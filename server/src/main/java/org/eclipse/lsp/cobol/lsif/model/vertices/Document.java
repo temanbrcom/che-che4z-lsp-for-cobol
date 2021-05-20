@@ -20,16 +20,19 @@ package org.eclipse.lsp.cobol.lsif.model.vertices;
 // "languageId":"typescript",
 // "contents":"Y29uc3QgZiA9IDIzOwoKZnVuY3Rpb24gZm9vKCkgewogICAgLy8gc29tZXRoaW5nCn0KCmZvbygpCg=="}
 
+import lombok.Getter;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 /** asdfsaf */
 public class Document extends Vertex {
-  final String uri;
+  public static final String LABEL = "document";
+  @Getter final String uri;
   final String languageId;
   final String contents;
 
   public Document(String uri, String languageId, String contents) {
-    super("document");
+    super(LABEL);
     this.contents = Base64.getEncoder().encodeToString(contents.getBytes(StandardCharsets.UTF_8));
     this.languageId = languageId;
     this.uri = uri;
