@@ -18,7 +18,6 @@ package org.eclipse.lsp.cobol.lsif.service;
 import com.google.common.collect.ImmutableList;
 import com.google.gson.Gson;
 import org.eclipse.lsp.cobol.core.model.Locality;
-import org.eclipse.lsp.cobol.core.model.variables.Variable;
 import org.eclipse.lsp.cobol.lsif.model.Node;
 import org.eclipse.lsp.cobol.lsif.model.edges.*;
 import org.eclipse.lsp.cobol.lsif.model.vertices.*;
@@ -42,8 +41,8 @@ public class LsifService {
   /**
    * asdfsfd
    *
-   * @param uri
-   * @param model
+   * @param uri asdf
+   * @param model asd
    */
   public void dumpGraph(String uri, CobolDocumentModel model) {
     String dump =
@@ -73,17 +72,31 @@ public class LsifService {
 
   private List<Node> createVariableGraphs(Node document, CobolDocumentModel model) {
     return model.getAnalysisResult().getVariables().stream()
-        .map(it -> createVariableGraph(document, it))
+        .map(
+            it ->
+                createSubGraph(
+                    document,
+                    it.getName(),
+                    SymbolKind.Variable,
+                    it.getFormattedDisplayLine(),
+                    it.getDefinition(),
+                    it.getUsages()))
         .flatMap(Collection::stream)
         .collect(Collectors.toList());
   }
 
-  private List<Node> createVariableGraph(Node document, Variable variable) {
+  private List<Node> createSubGraph(
+      Node document,
+      String name,
+      SymbolKind kind,
+      String hover,
+      Locality definitions,
+      List<Locality> usages) {
     List<Node> graph = new ArrayList<>();
-    Node definitionRange = variableDefinitionToRange(variable);
+    Node definitionRange = convertDefinitionToRange(name, definitions, kind);
     graph.add(definitionRange);
     graph.add(new Contains(ImmutableList.of(document.getId()), definitionRange.getId()));
-    List<Node> referenceRanges = variableUsagesToRanges(variable);
+    List<Node> referenceRanges = convertUsagesToRanges(name, usages, kind);
     graph.addAll(referenceRanges);
     referenceRanges.stream()
         .map(it -> new Contains(ImmutableList.of(it.getId()), document.getId()))
@@ -104,12 +117,10 @@ public class LsifService {
             document.getId(),
             null));
 
-    Node hoverResult =
-        new HoverResult(
-            ImmutableList.of(new HoverResult.Content(variable.getFormattedDisplayLine())));
+    Node hoverResult = new HoverResult(ImmutableList.of(new HoverResult.Content(hover)));
     graph.add(hoverResult);
     graph.add(new Request(Request.Type.HOVER, hoverResult.getId(), resultSet.getId(), null));
-    Node moniker = new Moniker(variable.getName());
+    Node moniker = new Moniker(name);
     graph.add(moniker);
     graph.add(new MonikerEdge(moniker.getId(), resultSet.getId()));
     Node referencesResult = new Result(Result.Type.REFERENCES);
@@ -136,26 +147,24 @@ public class LsifService {
     return graph;
   }
 
-  private List<Node> variableUsagesToRanges(Variable variable) {
-    return variable.getUsages().stream()
+  private List<Node> convertUsagesToRanges(String name, List<Locality> usages, SymbolKind kind) {
+    return usages.stream()
         .map(Locality::getRange)
         .map(
             it ->
                 new VertexRange(
                     it.getStart(),
                     it.getEnd(),
-                    new VertexRange.Tag(
-                        VertexRange.Type.REFERENCE, variable.getName(), null, null)))
+                    new VertexRange.Tag(VertexRange.Type.REFERENCE, name, kind, it)))
         .collect(Collectors.toList());
   }
 
-  private VertexRange variableDefinitionToRange(Variable variable) {
-    Range range = variable.getDefinition().getRange();
+  private VertexRange convertDefinitionToRange(String name, Locality locality, SymbolKind kind) {
+    Range range = locality.getRange();
     return new VertexRange(
         range.getStart(),
         range.getEnd(),
-        new VertexRange.Tag(
-            VertexRange.Type.DEFINITION, variable.getName(), SymbolKind.Variable, range));
+        new VertexRange.Tag(VertexRange.Type.DEFINITION, name, kind, range));
   }
 
   private List<Node> createStaticNodes(String uri) {
