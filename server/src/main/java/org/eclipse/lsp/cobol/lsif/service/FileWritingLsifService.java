@@ -87,9 +87,9 @@ public class FileWritingLsifService implements LsifService {
     documents.put(uri, document);
     List<Node> graph = new ArrayList<>(copybookNodes.values());
     graph.addAll(createDocumentConnections(copybookNodes.values(), project));
-    List<Node> subroutineDocuments = createSubroutineDocuments(analysisResult);
+    List<Document> subroutineDocuments = createSubroutineDocuments(analysisResult);
     graph.addAll(subroutineDocuments);
-    documents.put(uri, document);
+    subroutineDocuments.forEach(it -> documents.put(it.getUri(), it));
     graph.addAll(createDocumentConnections(subroutineDocuments, project));
     graph.addAll(createSubroutineGraph(documents, analysisResult));
     graph.addAll(createCopybookGraph(documents, analysisResult));
@@ -99,7 +99,7 @@ public class FileWritingLsifService implements LsifService {
     return graph;
   }
 
-  private List<Node> createSubroutineDocuments(AnalysisResult analysisResult) {
+  private List<Document> createSubroutineDocuments(AnalysisResult analysisResult) {
     return analysisResult.getSubroutineDefinitions().values().stream()
         .map(it -> it.get(0))
         .map(locations -> new Document(locations.getUri(), "COBOL", ""))
@@ -112,7 +112,8 @@ public class FileWritingLsifService implements LsifService {
         .collect(toMap(Document::getUri, Function.identity()));
   }
 
-  private List<Node> createDocumentConnections(Collection<Node> documents, Project project) {
+  private List<Node> createDocumentConnections(
+      Collection<? extends Node> documents, Project project) {
     return documents.stream()
         .map(it -> new Contains(ImmutableList.of(it.getId()), project.getId()))
         .collect(toList());
