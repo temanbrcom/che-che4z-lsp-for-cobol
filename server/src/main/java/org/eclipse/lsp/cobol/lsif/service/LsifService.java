@@ -95,7 +95,7 @@ public class LsifService {
     List<Node> graph = new ArrayList<>();
     Node definitionRange = convertDefinitionToRange(name, definitions, kind);
     graph.add(definitionRange);
-    graph.add(new Contains(ImmutableList.of(document.getId()), definitionRange.getId()));
+    graph.add(new Contains(ImmutableList.of(definitionRange.getId()), document.getId()));
     List<Node> referenceRanges = convertUsagesToRanges(name, usages, kind);
     graph.addAll(referenceRanges);
     referenceRanges.stream()
