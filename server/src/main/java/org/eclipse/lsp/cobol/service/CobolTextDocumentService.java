@@ -94,6 +94,7 @@ public class CobolTextDocumentService
   private CustomThreadPoolExecutor executors;
   private HoverProvider hoverProvider;
   private CFASTBuilder cfastBuilder;
+  private LsifService lsifService;
 
   @Inject
   @Builder
@@ -107,7 +108,8 @@ public class CobolTextDocumentService
       CodeActions actions,
       CustomThreadPoolExecutor executors,
       HoverProvider hoverProvider,
-      CFASTBuilder cfastBuilder) {
+      CFASTBuilder cfastBuilder,
+      LsifService lsifService) {
     this.communications = communications;
     this.engine = engine;
     this.formations = formations;
@@ -118,6 +120,7 @@ public class CobolTextDocumentService
     this.executors = executors;
     this.hoverProvider = hoverProvider;
     this.cfastBuilder = cfastBuilder;
+    this.lsifService = lsifService;
 
     dataBus.subscribe(this);
   }
@@ -328,11 +331,6 @@ public class CobolTextDocumentService
     registerToFutureMap(uri, docAnalysisFuture);
   }
 
-  private void createDump(String uri, CobolDocumentModel model) {
-    LsifService lsifService = new LsifService();
-    lsifService.dumpGraph(uri, model);
-  }
-
   private void registerToFutureMap(String uri, Future<?> docAnalysisFuture) {
     futureMap.put(uri, docAnalysisFuture);
   }
@@ -354,6 +352,7 @@ public class CobolTextDocumentService
                     communications.publishDiagnostics(result.getDiagnostics());
                     outlineMap.get(uri).complete(result.getOutlineTree());
                     cfAstMap.get(uri).complete(result.getRootNode());
+                    createDump(uri, docs.get(uri));
                   } catch (Exception ex) {
                     LOG.error(createDescriptiveErrorMessage("analysis", uri), ex);
                   } finally {
@@ -361,6 +360,10 @@ public class CobolTextDocumentService
                   }
                 });
     registerToFutureMap(uri, analyseSubmitFuture);
+  }
+
+  private void createDump(String uri, CobolDocumentModel model) {
+    lsifService.dumpGraph(uri, model);
   }
 
   private void publishResult(
