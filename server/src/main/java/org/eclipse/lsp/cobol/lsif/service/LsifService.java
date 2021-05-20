@@ -22,6 +22,8 @@ import org.eclipse.lsp.cobol.lsif.model.Node;
 import org.eclipse.lsp.cobol.lsif.model.edges.*;
 import org.eclipse.lsp.cobol.lsif.model.vertices.*;
 import org.eclipse.lsp.cobol.service.CobolDocumentModel;
+import org.eclipse.lsp.cobol.service.delegates.validations.AnalysisResult;
+import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SymbolKind;
 
@@ -33,7 +35,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static java.util.stream.Collectors.toList;
 
 /** asdfsaf */
 public class LsifService {
@@ -64,14 +69,17 @@ public class LsifService {
     graph.add(document);
     graph.add(document.beginEvent());
     graph.add(new Contains(ImmutableList.of(document.getId()), project.getId()));
-    graph.addAll(createVariableGraphs(document, model));
+    AnalysisResult analysisResult = model.getAnalysisResult();
+    graph.addAll(createVariableGraphs(document, analysisResult));
+    graph.addAll(createParagraphGraphs(document, analysisResult));
+    graph.addAll(createSectionGraphs(document, analysisResult));
     graph.add(document.endEvent());
     graph.add(project.endEvent());
     return graph;
   }
 
-  private List<Node> createVariableGraphs(Node document, CobolDocumentModel model) {
-    return model.getAnalysisResult().getVariables().stream()
+  private List<Node> createVariableGraphs(Node document, AnalysisResult result) {
+    return result.getVariables().stream()
         .map(
             it ->
                 createSubGraph(
@@ -79,10 +87,44 @@ public class LsifService {
                     it.getName(),
                     SymbolKind.Variable,
                     it.getFormattedDisplayLine(),
-                    it.getDefinition(),
-                    it.getUsages()))
+                    it.getDefinition().toLocation(),
+                    it.getUsages().stream().map(Locality::toLocation).collect(toList())))
         .flatMap(Collection::stream)
-        .collect(Collectors.toList());
+        .collect(toList());
+  }
+
+  private List<Node> createParagraphGraphs(Node document, AnalysisResult result) {
+    return result.getParagraphDefinitions().entrySet().stream()
+        .map(
+            it ->
+                createSubGraph(
+                    document,
+                    it.getKey(),
+                    SymbolKind.Method,
+                    it.getKey(),
+                    it.getValue().get(0),
+                    Optional.ofNullable(result.getParagraphUsages())
+                        .map(usages -> usages.get(it.getKey()))
+                        .orElse(ImmutableList.of())))
+        .flatMap(Collection::stream)
+        .collect(toList());
+  }
+
+  private List<Node> createSectionGraphs(Node document, AnalysisResult result) {
+    return result.getSectionDefinitions().entrySet().stream()
+        .map(
+            it ->
+                createSubGraph(
+                    document,
+                    it.getKey(),
+                    SymbolKind.Method,
+                    it.getKey(),
+                    it.getValue().get(0),
+                    Optional.ofNullable(result.getSectionUsages())
+                        .map(usages -> usages.get(it.getKey()))
+                        .orElse(ImmutableList.of())))
+        .flatMap(Collection::stream)
+        .collect(toList());
   }
 
   private List<Node> createSubGraph(
@@ -90,8 +132,8 @@ public class LsifService {
       String name,
       SymbolKind kind,
       String hover,
-      Locality definitions,
-      List<Locality> usages) {
+      org.eclipse.lsp4j.Location definitions,
+      List<Location> usages) {
     List<Node> graph = new ArrayList<>();
     Node definitionRange = convertDefinitionToRange(name, definitions, kind);
     graph.add(definitionRange);
@@ -147,20 +189,21 @@ public class LsifService {
     return graph;
   }
 
-  private List<Node> convertUsagesToRanges(String name, List<Locality> usages, SymbolKind kind) {
+  private List<Node> convertUsagesToRanges(String name, List<Location> usages, SymbolKind kind) {
     return usages.stream()
-        .map(Locality::getRange)
+        .map(Location::getRange)
         .map(
             it ->
                 new VertexRange(
                     it.getStart(),
                     it.getEnd(),
                     new VertexRange.Tag(VertexRange.Type.REFERENCE, name, kind, it)))
-        .collect(Collectors.toList());
+        .collect(toList());
   }
 
-  private VertexRange convertDefinitionToRange(String name, Locality locality, SymbolKind kind) {
-    Range range = locality.getRange();
+  private VertexRange convertDefinitionToRange(
+      String name, org.eclipse.lsp4j.Location location, SymbolKind kind) {
+    Range range = location.getRange();
     return new VertexRange(
         range.getStart(),
         range.getEnd(),
