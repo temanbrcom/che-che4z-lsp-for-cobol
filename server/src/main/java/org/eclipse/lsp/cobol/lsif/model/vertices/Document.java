@@ -15,11 +15,6 @@
 
 package org.eclipse.lsp.cobol.lsif.model.vertices;
 
-// {"id":9,"type":"vertex","label":"document",
-// "uri":"file:///home/anton/projects/lsif/testProject/main.ts",
-// "languageId":"typescript",
-// "contents":"Y29uc3QgZiA9IDIzOwoKZnVuY3Rpb24gZm9vKCkgewogICAgLy8gc29tZXRoaW5nCn0KCmZvbygpCg=="}
-
 import lombok.Getter;
 
 import java.nio.charset.StandardCharsets;
@@ -39,10 +34,10 @@ public class Document extends Vertex {
   }
 
   public Event beginEvent() {
-    return Event.begin("document", id);
+    return Event.begin(LABEL, id);
   }
 
   public Event endEvent() {
-    return Event.end("document", id);
+    return Event.end(LABEL, id);
   }
 }

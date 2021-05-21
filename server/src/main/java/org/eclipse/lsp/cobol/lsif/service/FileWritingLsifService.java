@@ -34,12 +34,12 @@ import org.eclipse.lsp4j.SymbolKind;
 
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Function;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Optional.ofNullable;
 import static java.util.stream.Collectors.*;
 
@@ -56,17 +56,24 @@ public class FileWritingLsifService implements LsifService {
 
   @Override
   public void dumpGraph(String uri, CobolDocumentModel model) {
-    String dump = createGraph(uri, model).stream().map(this::dumpNode).collect(joining("\n"));
-    System.out.println(dump);
+    String dumpV4 =
+        createGraph(uri, model, createStaticNodesV4(uri)).stream()
+            .map(this::dumpNode)
+            .collect(joining("\n"));
+    String dumpV6 =
+        createGraph(uri, model, createStaticNodesV6(uri)).stream()
+            .map(this::dumpNode)
+            .collect(joining("\n"));
     try {
-      Files.write(Paths.get(URI.create(uri + ".lsif")), dump.getBytes(StandardCharsets.UTF_8));
+      Files.write(Paths.get(URI.create(uri + "0-4-3.lsif")), dumpV4.getBytes(UTF_8));
+      Files.write(Paths.get(URI.create(uri + "0-6-0.lsif")), dumpV6.getBytes(UTF_8));
     } catch (IOException e) {
       e.printStackTrace();
     }
   }
 
-  private List<Node> createGraph(String uri, CobolDocumentModel model) {
-    List<Node> graph = new ArrayList<>(createStaticNodes(uri));
+  private List<Node> createGraph(String uri, CobolDocumentModel model, List<Node> staticNodes) {
+    List<Node> graph = new ArrayList<>(staticNodes);
     Project project = new Project("cobolProject", null);
     Document document = new Document(uri, "COBOL", model.getText());
     graph.add(project);
@@ -359,11 +366,17 @@ public class FileWritingLsifService implements LsifService {
     };
   }
 
-  private List<Node> createStaticNodes(String uri) {
+  private List<Node> createStaticNodesV6(String uri) {
     List<Node> graph = new ArrayList<>();
-    graph.add(new MetaData());
+    graph.add(MetaData.version6());
     graph.add(new Source(getRootURI(uri)));
     graph.add(new Capabilities());
+    return graph;
+  }
+
+  private List<Node> createStaticNodesV4(String uri) {
+    List<Node> graph = new ArrayList<>();
+    graph.add(MetaData.version4(getRootURI(uri)));
     return graph;
   }
 

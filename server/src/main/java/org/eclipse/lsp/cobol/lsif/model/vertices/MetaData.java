@@ -15,14 +15,31 @@
 
 package org.eclipse.lsp.cobol.lsif.model.vertices;
 
-// {"id":1,"type":"vertex","label":"metaData","version":"0.6.0-next.2","positionEncoding":"utf-16"}
-
 /** asdfsaf */
 public class MetaData extends Vertex {
-  final String version = "0.6.0-next.2";
+  final String version;
   final String positionEncoding = "utf-16";
+  final String projectRoot;
+  final ToolInfo toolInfo;
 
-  public MetaData() {
+  private MetaData(String version, String projectRoot, ToolInfo toolInfo) {
     super("metaData");
+    this.version = version;
+    this.projectRoot = projectRoot;
+    this.toolInfo = toolInfo;
+  }
+
+  public static MetaData version4(String projectRoot){
+    return new MetaData("0.4.3", projectRoot, new ToolInfo());
+  }
+
+  public static MetaData version6(){
+    return new MetaData("0.6.0-next.2", null, null);
+  }
+
+  private static class ToolInfo {
+    final String name = "lsif-cobol";
+    final String[] args = new String[] {};
+    final String version = "0.0.1";
   }
 }
