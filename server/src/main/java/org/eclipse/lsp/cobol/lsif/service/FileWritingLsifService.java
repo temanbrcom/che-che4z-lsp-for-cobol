@@ -27,6 +27,7 @@ import org.eclipse.lsp.cobol.service.CobolDocumentModel;
 import org.eclipse.lsp.cobol.service.CopybookProcessingMode;
 import org.eclipse.lsp.cobol.service.CopybookService;
 import org.eclipse.lsp.cobol.service.delegates.validations.AnalysisResult;
+import org.eclipse.lsp.cobol.service.utils.FileSystemService;
 import org.eclipse.lsp4j.Location;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.SymbolKind;
@@ -44,11 +45,13 @@ import static java.util.stream.Collectors.*;
 
 /** asdfsaf */
 public class FileWritingLsifService implements LsifService {
-  private final CopybookService service;
+  private final CopybookService copybookService;
+  private final FileSystemService fileService;
 
   @Inject
-  public FileWritingLsifService(CopybookService service) {
-    this.service = service;
+  public FileWritingLsifService(CopybookService copybookService, FileSystemService fileService) {
+    this.copybookService = copybookService;
+    this.fileService = fileService;
   }
 
   @Override
@@ -109,7 +112,15 @@ public class FileWritingLsifService implements LsifService {
   private List<Document> createSubroutineDocuments(AnalysisResult analysisResult) {
     return analysisResult.getSubroutineDefinitions().values().stream()
         .map(it -> it.get(0))
-        .map(locations -> new Document(locations.getUri(), "COBOL", ""))
+        .map(Location::getUri)
+        .map(
+            it ->
+                new Document(
+                    it,
+                    "COBOL",
+                    Optional.ofNullable(fileService.getPathFromURI(it))
+                        .map(fileService::getContentByPath)
+                        .orElse("")))
         .collect(toList());
   }
 
@@ -128,7 +139,7 @@ public class FileWritingLsifService implements LsifService {
 
   private List<CopybookModel> retrieveCopybooks(Set<String> copybooks, String uri) {
     return copybooks.stream()
-        .map(it -> service.resolve(it, uri, CopybookProcessingMode.ENABLED))
+        .map(it -> copybookService.resolve(it, uri, CopybookProcessingMode.ENABLED))
         .collect(toList());
   }
 
