@@ -78,24 +78,31 @@ public class FileWritingLsifService implements LsifService {
   }
 
   private List<Node> createGraphsForSemantics(
-      String uri, CobolDocumentModel model, Node document, Project project) {
+      String uri, CobolDocumentModel model, Document document, Project project) {
     AnalysisResult analysisResult = model.getAnalysisResult();
     List<CopybookModel> copybooks =
         retrieveCopybooks(analysisResult.getCopybookUsages().keySet(), uri);
-    Map<String, Node> copybookNodes = convertCopybooksToNodes(copybooks);
-    Map<String, Node> documents = new HashMap<>(copybookNodes);
+    Map<String, Document> copybookNodes = convertCopybooksToNodes(copybooks);
+    Map<String, Document> documents = new HashMap<>(copybookNodes);
     documents.put(uri, document);
-    List<Node> graph = new ArrayList<>(copybookNodes.values());
-    graph.addAll(createDocumentConnections(copybookNodes.values(), project));
-    List<Document> subroutineDocuments = createSubroutineDocuments(analysisResult);
-    graph.addAll(subroutineDocuments);
-    subroutineDocuments.forEach(it -> documents.put(it.getUri(), it));
-    graph.addAll(createDocumentConnections(subroutineDocuments, project));
+    Collection<Document> copybookDocs = copybookNodes.values();
+    List<Node> graph = new ArrayList<>(copybookDocs);
+    graph.addAll(copybookDocs.stream().map(Document::beginEvent).collect(toList()));
+    graph.addAll(createDocumentConnections(copybookDocs, project));
+
+    List<Document> subroutineDocs = createSubroutineDocuments(analysisResult);
+    graph.addAll(subroutineDocs);
+    graph.addAll(subroutineDocs.stream().map(Document::beginEvent).collect(toList()));
+    subroutineDocs.forEach(it -> documents.put(it.getUri(), it));
+
+    graph.addAll(createDocumentConnections(subroutineDocs, project));
     graph.addAll(createSubroutineGraph(documents, analysisResult));
     graph.addAll(createCopybookGraph(documents, analysisResult));
     graph.addAll(createVariableGraphs(documents, analysisResult));
     graph.addAll(createParagraphGraphs(documents, analysisResult));
     graph.addAll(createSectionGraphs(documents, analysisResult));
+    graph.addAll(subroutineDocs.stream().map(Document::endEvent).collect(toList()));
+    graph.addAll(copybookDocs.stream().map(Document::endEvent).collect(toList()));
     return graph;
   }
 
@@ -106,7 +113,7 @@ public class FileWritingLsifService implements LsifService {
         .collect(toList());
   }
 
-  private Map<String, Node> convertCopybooksToNodes(List<CopybookModel> copybooks) {
+  private Map<String, Document> convertCopybooksToNodes(List<CopybookModel> copybooks) {
     return copybooks.stream()
         .map(it -> new Document(it.getUri(), "COBOL Copybook", it.getContent()))
         .collect(toMap(Document::getUri, Function.identity()));
@@ -125,7 +132,7 @@ public class FileWritingLsifService implements LsifService {
         .collect(toList());
   }
 
-  private List<Node> createVariableGraphs(Map<String, Node> documents, AnalysisResult result) {
+  private List<Node> createVariableGraphs(Map<String, Document> documents, AnalysisResult result) {
     return result.getVariables().stream()
         .map(
             it ->
@@ -140,7 +147,7 @@ public class FileWritingLsifService implements LsifService {
         .collect(toList());
   }
 
-  private List<Node> createParagraphGraphs(Map<String, Node> documents, AnalysisResult result) {
+  private List<Node> createParagraphGraphs(Map<String, Document> documents, AnalysisResult result) {
     return result.getParagraphDefinitions().entrySet().stream()
         .map(
             it ->
@@ -157,7 +164,7 @@ public class FileWritingLsifService implements LsifService {
         .collect(toList());
   }
 
-  private List<Node> createSectionGraphs(Map<String, Node> documents, AnalysisResult result) {
+  private List<Node> createSectionGraphs(Map<String, Document> documents, AnalysisResult result) {
     return result.getSectionDefinitions().entrySet().stream()
         .map(
             it ->
@@ -174,7 +181,7 @@ public class FileWritingLsifService implements LsifService {
         .collect(toList());
   }
 
-  private List<Node> createCopybookGraph(Map<String, Node> documents, AnalysisResult result) {
+  private List<Node> createCopybookGraph(Map<String, Document> documents, AnalysisResult result) {
     return result.getCopybookDefinitions().entrySet().stream()
         .map(
             it ->
@@ -191,7 +198,7 @@ public class FileWritingLsifService implements LsifService {
         .collect(toList());
   }
 
-  private List<Node> createSubroutineGraph(Map<String, Node> documents, AnalysisResult result) {
+  private List<Node> createSubroutineGraph(Map<String, Document> documents, AnalysisResult result) {
     return result.getSubroutineDefinitions().entrySet().stream()
         .map(
             it ->
@@ -209,7 +216,7 @@ public class FileWritingLsifService implements LsifService {
   }
 
   private List<Node> createSubGraph(
-      Map<String, Node> documents,
+      Map<String, Document> documents,
       String name,
       SymbolKind kind,
       String hover,
@@ -248,7 +255,7 @@ public class FileWritingLsifService implements LsifService {
   }
 
   private List<Node> createReferenceResult(
-      Map<String, Node> documents,
+      Map<String, Document> documents,
       Node definitionRange,
       int definitionDocId,
       Map<Node, String> referenceRanges,
@@ -286,7 +293,7 @@ public class FileWritingLsifService implements LsifService {
   }
 
   private List<Contains> createContainsEdges(
-      Map<String, Node> documents, Map<Node, String> ranges) {
+      Map<String, Document> documents, Map<Node, String> ranges) {
     return ranges.entrySet().stream()
         .map(
             it ->
@@ -306,7 +313,7 @@ public class FileWritingLsifService implements LsifService {
   }
 
   private List<Node> createReferenceItemEdges(
-      Map<String, Node> documents, Map<Node, String> referenceRanges, Node referencesResult) {
+      Map<String, Document> documents, Map<Node, String> referenceRanges, Node referencesResult) {
     return referenceRanges.entrySet().stream()
         .map(
             it ->
