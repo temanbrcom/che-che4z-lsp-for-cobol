@@ -21,10 +21,12 @@ import java.util.List;
 public class Item extends Edge {
   final Integer shard;
   final String property;
+  final Integer document;
 
   public Item(Integer inV, int outV, List<Integer> inVs, Integer shard, String property) {
     super("item", inV, outV, inVs);
     this.shard = shard;
     this.property = property;
+    this.document = shard;
   }
 }
